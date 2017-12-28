@@ -1,0 +1,8 @@
+Python 2.7 32 bit
+
+PyAutoGUI==0.9.36
+numpy
+opencv
+
+run pywin32-221.win32-py2.7.exe
+python C:\Python27\Scripts\pywin32_postinstall.py -install
