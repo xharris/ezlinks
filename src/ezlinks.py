@@ -1,34 +1,33 @@
-import win32api, win32gui, win32con, re, time, pyautogui, os, cv2
+import win32api, win32gui, win32con, re, time, pyautogui, os, cv2, imutils
 import numpy
 from vk_code import VK_CODE
 
 class WinController():
 	def __init__(self, program_name):
-		# check if window is open
 		target_title = ''
 		win_titles = enum_window_titles()
 		print("Window search results:")
+
+		results = 0
 		for w in win_titles:
 			if w.strip() not in ['', 'Default IME', 'MSCTFIME UI', 'G'] and re.search(program_name, w.strip()):
 				print('\t'+w.strip())
 				target_title = w
-		
-		# get info about the window
-		self.win_title = target_title
-		self.hwnd = win32gui.FindWindow(None, target_title)
-		print("hwnd: "+str(self.hwnd))
+				results += 1
 
-		# found a valid window?
-		if self.hwnd == 0:
-			self.is_ready = False
-			print("Window could not be controlled...")
+		#could not find the window
+		if results == 0:
+			raise Exception(program_name+" could not be found...")
+
+		# valid window found
 		else:
-			self.is_ready = True
+			# get info about the window
+			self.win_title = target_title
+			self.hwnd = win32gui.FindWindow(None, target_title)
+			print("hwnd: "+str(self.hwnd))
+
 			self.refreshWindowRect()
 			print("window rect: x={} y={} w={} h={}".format(*self.win_rect))
-
-	def isReady(self):
-		return self.is_ready
 
 	# set window left/top to (0,0)
 	# still a little off
@@ -69,7 +68,9 @@ class WinController():
 		return x - self.win_rect[0], y - self.win_rect[1]
 
 	def refreshWindowRect(self):
-		self.win_rect = win32gui.GetClientRect(self.hwnd)
+		bad_x, bad_y, w, h = win32gui.GetClientRect(self.hwnd)
+		x, y, bad_w, bad_h = win32gui.GetWindowRect(self.hwnd)
+		self.win_rect = [x, y, w, h]
 
 
 # get a list of open processes
@@ -89,51 +90,62 @@ class ImageLocator():
 		image_folder = os.path.join(os.getcwd(), 'images')
 
 	def __init__(self):
-		self.screenshots = ['world.png']
+		self.image_sources = []
 		self.res = None
 
-	def takeScreenshot(self):
-		pass
+	def addImageSource(self, src):
+		self.image_sources.append(src)
 
-	def clearScreenshots(self):
-		# delete each one
+	def clearImageSources(self):
+		self.image_sources = []
 
-		# reset array
-		pass
+	'''
+	locate the position on an image in a larger one
+	returns a list of dicts with the structure: {src, x, y, w, h}
+		- src: image source where the template was found
+		- x, y, w, h: location rectangle	
+	partly from https://www.pyimagesearch.com/2015/01/26/multi-scale-template-matching-using-python-opencv/
+	'''
+	def locate(self, img_template):
+		found = {}
+		for img_source in self.image_sources:
+		    template = cv2.imread(os.path.join(self.image_folder,img_template)) # loads image
+		    template = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY) # convert to grayscale
+		    template = cv2.Canny(template, 50, 200) # detects edges???
+		    (tH, tW) = template.shape[:2]
 
-	# locate the position on an image using screenshots
-	def locate(self, template):
-		for main_image in self.screenshots:
-			# prepare large image
-			img_haystack = cv2.imread(os.path.join(self.image_folder, main_image))
+		    # idk if this will work for our circular images but we'll try
+		    image = cv2.imread(os.path.join(self.image_folder,img_source))
+		    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+		    found = None
 
-			if img_haystack is None:
-				print("Could not load image:  " + main_image)
-				return
+		    for scale in numpy.linspace(0.2, 1.0, 20)[::-1]:
+		        resized = imutils.resize(image, width = int(image.shape[1] * scale))
+		        r = image.shape[1] / float(resized.shape[1])
 
-			img_haystack_gray = cv2.cvtColor(img_haystack, cv2.COLOR_BGR2GRAY)
+		        if resized.shape[0] < tH or resized.shape[1] < tW:
+		            break
 
-			# prepare image being searched for
-			img_needle = cv2.imread(os.path.join(self.image_folder, template), 0)
-			needle_w, needle_h = img_needle.shape[::-1]
+		        edged = cv2.Canny(resized, 50, 200)
+		        result = cv2.matchTemplate(edged, template, cv2.TM_CCOEFF)
+		        (_, maxVal, _, maxLoc) = cv2.minMaxLoc(result)
 
-			# do some hand waving
-			print("finding "+template+" in "+main_image)
-			self.res = cv2.matchTemplate(img_haystack_gray, img_needle, cv2.TM_CCOEFF_NORMED)
+		        # draw a bounding box around the detected region
+		        clone = numpy.dstack([edged, edged, edged])
+		        #cv2.rectangle(clone, (maxLoc[0], maxLoc[1]), (maxLoc[0] + tW, maxLoc[1] + tH), (0, 0, 255), 2)
+		        #cv2.imshow("Visualize", clone)
+		        #cv2.waitKey(0)
 
-			threshold = 0.56
-			loc = numpy.where(self.res >= threshold)
+		        if found is None or maxVal > found[0]:
+		            found = (maxVal, maxLoc, r)
 
-			if len(loc[0]) == 0 and len(loc[1]) == 0:
-				print("Could not find the template {} with image {}: ".format(template, main_image))
-				print(self.findThreshold(self.res))
-				return
+		    if found:
+				(_, maxLoc, r) = found
+				(startX, startY) = (int(maxLoc[0] * r), int(maxLoc[1] * r))
+				(endX, endY) = (int((maxLoc[0] + tW) * r), int((maxLoc[1] + tH) * r))
 
-			# draw a rectangle where it was found
-			for point in zip(*loc[::-1]):
-				print("\tfound at ("+str(point[0])+", "+str(point[1])+")")
-				cv2.rectangle(img_haystack, point, (point[0] + needle_w, point[1] + needle_h), (0,0,255), 2)
-			cv2.imwrite(os.path.join(self.image_folder, main_image), img_haystack)
+				found.append({src:img_source, x:startX, y:startY, w:endX, h:endY})
+		return found
 
 	# binary search to find an optimal threshold
 	def findThreshold(self, res):
@@ -170,3 +182,11 @@ class ImageLocator():
 		else:
 			# found exactly one instance, we're good!
 			return threshold
+
+class DuelLinks():
+	def __init__(self):
+		self.img_locator = ImageLocator()
+		self.win_ctrl = WinController("Yu-Gi-Oh! DUEL LINKS")
+
+		self.win_ctrl.bringToFront()
+
