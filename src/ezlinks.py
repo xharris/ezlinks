@@ -82,10 +82,15 @@ def enum_window_titles():
     return titles
 
 class ImageLocator():
-	image_folder = os.path.join(os.getcwd(), 'src', 'images') 	# folder containing images used for locating regions on screen
-	
+	# check if we're in the src folder or in the root folder
+	if 'src' not in os.getcwd():
+		image_folder = os.path.join(os.getcwd(), 'src', 'images') 	# folder containing images used for locating regions on screen
+	else:
+		image_folder = os.path.join(os.getcwd(), 'images')
+
 	def __init__(self):
 		self.screenshots = ['world.png']
+		self.res = None
 
 	def takeScreenshot(self):
 		pass
@@ -101,6 +106,11 @@ class ImageLocator():
 		for main_image in self.screenshots:
 			# prepare large image
 			img_haystack = cv2.imread(os.path.join(self.image_folder, main_image))
+
+			if img_haystack is None:
+				print("Could not load image:  " + main_image)
+				return
+
 			img_haystack_gray = cv2.cvtColor(img_haystack, cv2.COLOR_BGR2GRAY)
 
 			# prepare image being searched for
@@ -109,13 +119,54 @@ class ImageLocator():
 
 			# do some hand waving
 			print("finding "+template+" in "+main_image)
-			res = cv2.matchTemplate(img_haystack_gray, img_needle, cv2.TM_CCOEFF_NORMED)
-			threshold = 0.8
-			loc = numpy.where(res >= threshold)
+			self.res = cv2.matchTemplate(img_haystack_gray, img_needle, cv2.TM_CCOEFF_NORMED)
+
+			threshold = 0.55
+			loc = numpy.where(self.res >= threshold)
+
+			if len(loc[0]) == 0 and len(loc[1]) == 0:
+				print("Could not find the template {} with image {}: ".format(template, main_image))
+				print(self.findThreshold(self.res))
+				return
 
 			# draw a rectangle where it was found
 			for point in zip(*loc[::-1]):
 				print("\tfound at ("+str(point[0])+", "+str(point[1])+")")
 				cv2.rectangle(img_haystack, point, (point[0] + needle_w, point[1] + needle_h), (0,0,255), 2)
 			cv2.imwrite(os.path.join(self.image_folder, main_image), img_haystack)
-			
+
+	# binary search to find an optimal threshold
+	def findThreshold(self, res, tolerance=0.001):
+		if self.res is not res:
+			self.res = res
+
+		return self._findThreshold()
+
+	def midpoint(self, lower_bound, upper_bound):
+		return (upper_bound + lower_bound) / 2
+
+	def _findThreshold(self, lower_bound=0, upper_bound=1.0, iters=0):
+		print("ITER[{}], LOWER[{}], UPPER[{}]".format(iters, lower_bound, upper_bound))
+		if self.res is None:
+			print("Could not find threshold: res was null")
+			return
+
+		threshold = self.midpoint(lower_bound, upper_bound)
+
+		# 1000 is failsafe
+		if iters > 100 or lower_bound == upper_bound:
+			print("Could not find threshold: failsafe condition was met")
+			return threshold
+
+		# only need to compute for one dimension since it's impossible for a point to exist with an x and not a y
+		if len(numpy.where(self.res >= threshold)[0]) == 0:
+			#not found, lowering threshold
+			print("NOT FOUND")
+			return self._findThreshold(lower_bound, threshold, iters=iters+1)
+		elif len(numpy.where(self.res >= threshold)[0]) > 1:
+			#found! let's try increasing threshold
+			print("FOUND")
+			return self._findThreshold(threshold, upper_bound, iters=iters+1)
+		else:
+			# found exactly one instance, we're good!
+			return threshold
