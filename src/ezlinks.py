@@ -121,7 +121,7 @@ class ImageLocator():
 			print("finding "+template+" in "+main_image)
 			self.res = cv2.matchTemplate(img_haystack_gray, img_needle, cv2.TM_CCOEFF_NORMED)
 
-			threshold = 0.55
+			threshold = 0.56
 			loc = numpy.where(self.res >= threshold)
 
 			if len(loc[0]) == 0 and len(loc[1]) == 0:
@@ -136,14 +136,14 @@ class ImageLocator():
 			cv2.imwrite(os.path.join(self.image_folder, main_image), img_haystack)
 
 	# binary search to find an optimal threshold
-	def findThreshold(self, res, tolerance=0.001):
+	def findThreshold(self, res):
 		if self.res is not res:
 			self.res = res
 
 		return self._findThreshold()
 
 	def midpoint(self, lower_bound, upper_bound):
-		return (upper_bound + lower_bound) / 2
+		return (lower_bound + upper_bound) / 2
 
 	def _findThreshold(self, lower_bound=0, upper_bound=1.0, iters=0):
 		print("ITER[{}], LOWER[{}], UPPER[{}]".format(iters, lower_bound, upper_bound))
