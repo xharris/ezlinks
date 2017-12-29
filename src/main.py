@@ -9,6 +9,3 @@ if game_window.isReady():
 
 img_finder = ImageLocator()
 img_finder.locate('douche1.png')
-
-
-match.match('C:/Users/Gene/Desktop/ezlinks/src/images/douche1.png', 'C:/Users/Gene/Desktop/ezlinks/src/images/world.png')

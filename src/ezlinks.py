@@ -1,6 +1,7 @@
 import win32api, win32gui, win32con, re, time, pyautogui, os, cv2
 import numpy
 from vk_code import VK_CODE
+import match
 
 class WinController():
 	def __init__(self, program_name):
@@ -109,7 +110,7 @@ class ImageLocator():
 
 			if img_haystack is None:
 				print("Could not load image:  " + main_image)
-				return
+				continue
 
 			img_haystack_gray = cv2.cvtColor(img_haystack, cv2.COLOR_BGR2GRAY)
 
@@ -127,13 +128,15 @@ class ImageLocator():
 			if len(loc[0]) == 0 and len(loc[1]) == 0:
 				print("Could not find the template {} with image {}: ".format(template, main_image))
 				print(self.findThreshold(self.res))
-				return
+				continue
 
 			# draw a rectangle where it was found
 			for point in zip(*loc[::-1]):
 				print("\tfound at ("+str(point[0])+", "+str(point[1])+")")
 				cv2.rectangle(img_haystack, point, (point[0] + needle_w, point[1] + needle_h), (0,0,255), 2)
 			cv2.imwrite(os.path.join(self.image_folder, main_image), img_haystack)
+
+		match.match(os.path.join(self.image_folder, template), os.path.join(self.image_folder, main_image))
 
 	# binary search to find an optimal threshold
 	def findThreshold(self, res):
