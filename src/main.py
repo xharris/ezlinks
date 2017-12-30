@@ -1,8 +1,14 @@
 '''
 
-READ FIRST:
+EZ Links - duel links 'assistance' tool hehe xd
+started: 12/28/17
 
-	before running this script:
+DEVELOPMENT:
+
+	- see requirements.txt for required python libraries
+
+RUNNING:
+
 	1. open Duel Links
 	2. press Initiate Link
 	3. go through any opening dialogs or news dialogs
