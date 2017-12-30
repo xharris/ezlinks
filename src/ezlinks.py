@@ -237,9 +237,7 @@ class DuelLinks():
 					# offset from window position
 					self.npcs.append(npc_loc)
 					break # break first loop
-		print("NPCs found:" + ', '.join(self.npcs))
-
-		print(" "+str(len(self.npcs))+"!")
+		print("NPCs found:" +str(len(self.npcs))+"!")
 
 	# duel any one npc found on the screen
 	def duelNPC(self):
