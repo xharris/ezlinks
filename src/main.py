@@ -18,8 +18,7 @@ RUNNING:
 
 '''
 
-import os
-from ezlinks import DuelLinks, WinController
+from ezlinks import DuelLinks
 
 
 duel_links = DuelLinks()
