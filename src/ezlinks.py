@@ -117,6 +117,9 @@ class ImageLocator():
 		if not os.path.isfile(self.image_source):
 			raise Exception("image not found: "+self.image_source)
 
+		from shutil import copyfile
+		copyfile(os.path.join(self.image_folder,self.image_source), os.path.join(self.image_folder,"result.png"))
+
 	# returns C:/Documents/whatever/<png_name>.png
 	def createImagePath(self, png_name):
 		return os.path.join(self.image_folder, png_name+'.png')
@@ -129,7 +132,7 @@ class ImageLocator():
 	partly from https://www.pyimagesearch.com/2015/01/26/multi-scale-template-matching-using-python-opencv/
 	'''
 	def locate(self, img_template):
-		if self.image_source != '':
+		if self.image_source != '' and os.path.isfile(os.path.join(self.image_folder,img_template)):
 		    template = cv2.imread(os.path.join(self.image_folder,img_template)) # loads image
 		    template = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY) # convert to grayscale
 		    template = cv2.Canny(template, 50, 200) # detects edges???
@@ -152,20 +155,20 @@ class ImageLocator():
 		        (_, maxVal, _, maxLoc) = cv2.minMaxLoc(result)
 
 		        # draw a bounding box around the detected region
-		        clone = numpy.dstack([edged, edged, edged])
-		        #cv2.rectangle(clone, (maxLoc[0], maxLoc[1]), (maxLoc[0] + tW, maxLoc[1] + tH), (0, 0, 255), 2)
-		        #cv2.imshow("Visualize", clone)
-		        #cv2.waitKey(0)
-
+		        #clone = numpy.dstack([edged, edged, edged])
+		       	
 		        if found is None or maxVal > found[0]:
 		            found = (maxVal, maxLoc, r)
 
-		    if found:
-				(_, maxLoc, r) = found
-				(startX, startY) = (int(maxLoc[0] * r), int(maxLoc[1] * r))
-				(endX, endY) = (int((maxLoc[0] + tW) * r), int((maxLoc[1] + tH) * r))
+			(_, maxLoc, r) = found
+			(startX, startY) = (int(maxLoc[0] * r), int(maxLoc[1] * r))
+			(endX, endY) = (int((maxLoc[0] + tW) * r), int((maxLoc[1] + tH) * r))
+			
+			result_img = cv2.imread(os.path.join(self.image_folder,"result.png"))
+			cv2.rectangle(result_img, (startX, startY), (endX, endY), (0, 0, 255), 2)
+			cv2.imwrite(os.path.join(self.image_folder,"result.png"), result_img)
 
-				return [startX,startY,endX,endY]
+			return [startX,startY,endX-startX,endY-startY]
 		return None
 
 	# binary search to find an optimal threshold
@@ -205,9 +208,11 @@ class ImageLocator():
 			return threshold
 
 class DuelLinks():
+	NPC_NAMES = ["standard", "legend"]
 	def __init__(self):
 		self.img_locator = ImageLocator()
 		self.win_ctrl = WinController("Yu-Gi-Oh! DUEL LINKS")
+		self.npcs = []
 
 		self.win_ctrl.bringToFront()
 
@@ -216,18 +221,34 @@ class DuelLinks():
 	def goToStreet(self, street):
 		img_path = os.path.join(self.img_locator.image_folder, street+".png")
 		if os.path.isfile(img_path):
-			pass
+			self.npcs = []
 		else:
 			raise Exception("Street \'{}\' not found".format(street))
 
-	# duel any one npc found on the screen
-	def duelNPC(self):
+	# stores the coordinates of all found npcs
+	def getAllNpc(self):
 		self.win_ctrl.takeScreenshot(self.img_locator.createImagePath("world"))
 		self.img_locator.setImageSource("world.png")
-		npc_location = self.img_locator.locate("jess.png")
+
+		print "NPCs found:",
+		for name in self.NPC_NAMES:
+			for i in range(0,3):
+				npc_loc = self.img_locator.locate(name+str(i)+".png")
+				if npc_loc != None:
+					# offset from window position
+					self.npcs.append(npc_loc)
+					break # break first loop
+
+		print(" "+str(len(self.npcs))+"!")
+
+	# duel any one npc found on the screen
+	def duelNPC(self):
+		self.getAllNpc()
 
 		# offset from window position
-		self.win_ctrl.click(npc_location[0], npc_location[1])
+		if len(self.npcs) > 0:
+			npc = self.npcs.pop()
+			self.win_ctrl.click(npc[0]+(npc[2]/2), npc[1]+(npc[3]/2))
 
 	# check how many NPCs are in the world (excluding vagabonds and legendary duelists)
 	def getPopulation():
