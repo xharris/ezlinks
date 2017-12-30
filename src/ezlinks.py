@@ -36,7 +36,6 @@ class WinController():
 			print("hwnd: "+str(self.hwnd))
 
 			self.refreshWindowRect()
-			print("window rect: x={} y={} w={} h={}".format(*self.win_rect))
 
 	# set window left/top to (0,0)
 	# still a little off
@@ -44,6 +43,8 @@ class WinController():
 		win32gui.SetWindowPos(self.hwnd, win32con.HWND_NOTOPMOST, 0, 0, self.win_rect[2], self.win_rect[3], 0)
 
 	def bringToFront(self):
+		win32gui.ShowWindow(self.hwnd, win32con.SW_RESTORE)
+		win32gui.BringWindowToTop(self.hwnd)
 		win32gui.SetForegroundWindow(self.hwnd)
 
 	# types text in currently focused element
@@ -87,8 +88,11 @@ class WinController():
 		)
 		x, y, w, h = (rect.left, rect.top, rect.right-rect.left, rect.bottom-rect.top)
 		self.win_rect = [x, y, w, h]
+		print("window rect: x={} y={} w={} h={}".format(*self.win_rect))
 
 	def takeScreenshot(self, save_name):
+		self.refreshWindowRect()
+
 		# create screenshot dir
 		if not os.path.exists(os.path.join(_src,'screenshots')):
 			os.makedirs(os.path.join(_src,'screenshots'))
