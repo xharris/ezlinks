@@ -58,7 +58,7 @@ class WinController():
 		self.bringToFront()
 		pyautogui.click(x,y)
 		''' # sending click to background window doesn't work
-   		lParam = (y << 16) | x # position to click
+		lParam = (y << 16) | x # position to click
 		print(win32api.PostMessage(self.hwnd, win32con.WM_LBUTTONDOWN, 0, lParam))
 		print(win32api.PostMessage(self.hwnd, win32con.WM_LBUTTONUP, 0, lParam))
 		'''
@@ -94,12 +94,12 @@ class WinController():
 
 # get a list of open processes
 def enum_window_titles():
-    def callback(handle, data):
-        titles.append(win32gui.GetWindowText(handle))
+	def callback(handle, data):
+		titles.append(win32gui.GetWindowText(handle))
 
-    titles = []
-    win32gui.EnumWindows(callback, None)
-    return titles
+	titles = []
+	win32gui.EnumWindows(callback, None)
+	return titles
 
 class ImageLocator():
 	# check if we're in the src folder or in the root folder
@@ -133,32 +133,32 @@ class ImageLocator():
 	'''
 	def locate(self, img_template):
 		if self.image_source != '' and os.path.isfile(img_template):
-		    template = cv2.imread(img_template) # loads image
-		    template = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY) # convert to grayscale
-		    template = cv2.Canny(template, 50, 200) # detects edges???
-		    (tH, tW) = template.shape[:2]
+			template = cv2.imread(img_template) # loads image
+			template = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY) # convert to grayscale
+			template = cv2.Canny(template, 50, 200) # detects edges???
+			(tH, tW) = template.shape[:2]
 
-		    # idk if this will work for our circular images but we'll try
-		    image = cv2.imread(os.path.join(self.image_folder,self.image_source))
-		    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-		    found = None
+			# idk if this will work for our circular images but we'll try
+			image = cv2.imread(os.path.join(self.image_folder,self.image_source))
+			image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+			found = None
 
-		    for scale in numpy.linspace(0.2, 1.0, 20)[::-1]:
-		        resized = imutils.resize(image, width = int(image.shape[1] * scale))
-		        r = image.shape[1] / float(resized.shape[1])
+			for scale in numpy.linspace(0.2, 1.0, 20)[::-1]:
+				resized = imutils.resize(image, width = int(image.shape[1] * scale))
+				r = image.shape[1] / float(resized.shape[1])
 
-		        if resized.shape[0] < tH or resized.shape[1] < tW:
-		            break
+				if resized.shape[0] < tH or resized.shape[1] < tW:
+					break
 
-		        edged = cv2.Canny(resized, 50, 200)
-		        result = cv2.matchTemplate(edged, template, cv2.TM_CCOEFF)
-		        (_, maxVal, _, maxLoc) = cv2.minMaxLoc(result)
+				edged = cv2.Canny(resized, 50, 200)
+				result = cv2.matchTemplate(edged, template, cv2.TM_CCOEFF)
+				(_, maxVal, _, maxLoc) = cv2.minMaxLoc(result)
 
-		        # draw a bounding box around the detected region
-		        #clone = numpy.dstack([edged, edged, edged])
-		       	
-		        if found is None or maxVal > found[0]:
-		            found = (maxVal, maxLoc, r)
+				# draw a bounding box around the detected region
+				#clone = numpy.dstack([edged, edged, edged])
+
+				if found is None or maxVal > found[0]:
+					found = (maxVal, maxLoc, r)
 
 			(_, maxLoc, r) = found
 			(startX, startY) = (int(maxLoc[0] * r), int(maxLoc[1] * r))
@@ -230,7 +230,6 @@ class DuelLinks():
 		self.win_ctrl.takeScreenshot(self.img_locator.createImagePath("world"))
 		self.img_locator.setImageSource(self.img_locator.createImagePath("world"))
 
-		print "NPCs found:",
 		for name in self.NPC_NAMES:
 			for i in range(0,3):
 				npc_loc = self.img_locator.locate(self.img_locator.createImagePath(name+str(i)))
@@ -238,6 +237,7 @@ class DuelLinks():
 					# offset from window position
 					self.npcs.append(npc_loc)
 					break # break first loop
+		print("NPCs found:" + ', '.join(self.npcs))
 
 		print(" "+str(len(self.npcs))+"!")
 
