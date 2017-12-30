@@ -117,9 +117,6 @@ class ImageLocator():
 		if not os.path.isfile(self.image_source):
 			raise Exception("image not found: "+self.image_source)
 
-		from shutil import copyfile
-		copyfile(self.image_source, self.createImagePath("result"))
-
 	# returns C:/Documents/whatever/<png_name>.png
 	def createImagePath(self, png_name):
 		return os.path.join(self.image_folder, png_name+'.png')
@@ -164,12 +161,19 @@ class ImageLocator():
 			(startX, startY) = (int(maxLoc[0] * r), int(maxLoc[1] * r))
 			(endX, endY) = (int((maxLoc[0] + tW) * r), int((maxLoc[1] + tH) * r))
 			
-			result_img = cv2.imread(self.createImagePath("result"))
-			cv2.rectangle(result_img, (startX, startY), (endX, endY), (0, 0, 255), 2)
-			cv2.imwrite(self.createImagePath("result"), result_img)
-
 			return [startX,startY,endX-startX,endY-startY]
 		return None
+
+	def createResultImage(self):
+		if self.image_source != '':
+			from shutil import copyfile
+			copyfile(self.image_source, self.createImagePath("result"))
+
+	def drawResultRect(self, x, y, w, h):
+		if self.image_source != '':
+			result_img = cv2.imread(self.createImagePath("result"))
+			cv2.rectangle(result_img, (x, y), (x+w, y+h), (0, 0, 255), 2)
+			cv2.imwrite(self.createImagePath("result"), result_img)
 
 	# binary search to find an optimal threshold
 	def findThreshold(self, res):
@@ -229,13 +233,15 @@ class DuelLinks():
 	def getAllNpc(self):
 		self.win_ctrl.takeScreenshot(self.img_locator.createImagePath("world"))
 		self.img_locator.setImageSource(self.img_locator.createImagePath("world"))
+		self.img_locator.createResultImage()
 
 		print "NPCs found:",
 		for name in self.NPC_NAMES:
 			for i in range(0,3):
 				npc_loc = self.img_locator.locate(self.img_locator.createImagePath(name+str(i)))
-				if npc_loc != None:
+				if npc_loc != None and npc_loc[1] > self.win_ctrl.win_rect[3]/2:
 					# offset from window position
+					self.img_locator.drawResultRect(npc_loc[0], npc_loc[1], npc_loc[2], npc_loc[3])
 					self.npcs.append(npc_loc)
 					break # break first loop
 
@@ -252,7 +258,7 @@ class DuelLinks():
 
 	# check how many NPCs are in the world (excluding vagabonds and legendary duelists)
 	def getPopulation():
-		pass
+		return 9 # hardcoded for now
 
 	# autoduel until no one is left
 	def cleanTheStreets(self):
