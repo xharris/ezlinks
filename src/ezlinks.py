@@ -113,12 +113,12 @@ class ImageLocator():
 		self.res = None
 
 	def setImageSource(self, src):
-		self.image_source = os.path.join(self.image_folder, src)
+		self.image_source = src
 		if not os.path.isfile(self.image_source):
 			raise Exception("image not found: "+self.image_source)
 
 		from shutil import copyfile
-		copyfile(os.path.join(self.image_folder,self.image_source), os.path.join(self.image_folder,"result.png"))
+		copyfile(self.image_source, self.createImagePath("result"))
 
 	# returns C:/Documents/whatever/<png_name>.png
 	def createImagePath(self, png_name):
@@ -132,8 +132,8 @@ class ImageLocator():
 	partly from https://www.pyimagesearch.com/2015/01/26/multi-scale-template-matching-using-python-opencv/
 	'''
 	def locate(self, img_template):
-		if self.image_source != '' and os.path.isfile(os.path.join(self.image_folder,img_template)):
-		    template = cv2.imread(os.path.join(self.image_folder,img_template)) # loads image
+		if self.image_source != '' and os.path.isfile(img_template):
+		    template = cv2.imread(img_template) # loads image
 		    template = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY) # convert to grayscale
 		    template = cv2.Canny(template, 50, 200) # detects edges???
 		    (tH, tW) = template.shape[:2]
@@ -164,9 +164,9 @@ class ImageLocator():
 			(startX, startY) = (int(maxLoc[0] * r), int(maxLoc[1] * r))
 			(endX, endY) = (int((maxLoc[0] + tW) * r), int((maxLoc[1] + tH) * r))
 			
-			result_img = cv2.imread(os.path.join(self.image_folder,"result.png"))
+			result_img = cv2.imread(self.createImagePath("result"))
 			cv2.rectangle(result_img, (startX, startY), (endX, endY), (0, 0, 255), 2)
-			cv2.imwrite(os.path.join(self.image_folder,"result.png"), result_img)
+			cv2.imwrite(self.createImagePath("result"), result_img)
 
 			return [startX,startY,endX-startX,endY-startY]
 		return None
@@ -219,7 +219,7 @@ class DuelLinks():
 	# street: gate, pvp, shop, studio
 	# TODO: add images to folder
 	def goToStreet(self, street):
-		img_path = os.path.join(self.img_locator.image_folder, street+".png")
+		img_path = os.path.join(self.img_locator.createImagePath(street))
 		if os.path.isfile(img_path):
 			self.npcs = []
 		else:
@@ -228,12 +228,12 @@ class DuelLinks():
 	# stores the coordinates of all found npcs
 	def getAllNpc(self):
 		self.win_ctrl.takeScreenshot(self.img_locator.createImagePath("world"))
-		self.img_locator.setImageSource("world.png")
+		self.img_locator.setImageSource(self.img_locator.createImagePath("world"))
 
 		print "NPCs found:",
 		for name in self.NPC_NAMES:
 			for i in range(0,3):
-				npc_loc = self.img_locator.locate(name+str(i)+".png")
+				npc_loc = self.img_locator.locate(self.img_locator.createImagePath(name+str(i)))
 				if npc_loc != None:
 					# offset from window position
 					self.npcs.append(npc_loc)
