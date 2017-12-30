@@ -6,7 +6,12 @@ from vk_code import VK_CODE
 import ctypes.wintypes
 from ctypes import wintypes, windll, sizeof, byref
 
+# check if we're in the src folder or in the root folder
+_src = os.path.join(os.getcwd(),'src') if 'src' not in os.getcwd() else os.path.join(os.getcwd())
+
 class WinController():
+	screenshot_folder = os.path.join(_src, 'screenshots')
+
 	def __init__(self, program_name):
 		target_title = ''
 		win_titles = enum_window_titles()
@@ -58,7 +63,7 @@ class WinController():
 		self.bringToFront()
 		pyautogui.click(x,y)
 		''' # sending click to background window doesn't work
-   		lParam = (y << 16) | x # position to click
+		lParam = (y << 16) | x # position to click
 		print(win32api.PostMessage(self.hwnd, win32con.WM_LBUTTONDOWN, 0, lParam))
 		print(win32api.PostMessage(self.hwnd, win32con.WM_LBUTTONUP, 0, lParam))
 		'''
@@ -83,29 +88,28 @@ class WinController():
 		x, y, w, h = (rect.left, rect.top, rect.right-rect.left, rect.bottom-rect.top)
 		self.win_rect = [x, y, w, h]
 
-	def takeScreenshot(self, save_path):
+	def takeScreenshot(self, save_name):
+		screenshot_path = os.path.join(_src,'screenshots',save_name+'.png')
 		with mss.mss() as sct:
 			shot = sct.grab({
 				'left':self.win_rect[0], 'top':self.win_rect[1],
 				'width':self.win_rect[2], 'height':self.win_rect[3]
 			})
-			mss.tools.to_png(shot.rgb, shot.size, save_path)
-		print("wrote screenshot: "+save_path)
+			mss.tools.to_png(shot.rgb, shot.size, screenshot_path)
+		print("wrote screenshot: "+screenshot_path)
+		return screenshot_path
 
 # get a list of open processes
 def enum_window_titles():
-    def callback(handle, data):
-        titles.append(win32gui.GetWindowText(handle))
+	def callback(handle, data):
+		titles.append(win32gui.GetWindowText(handle))
 
-    titles = []
-    win32gui.EnumWindows(callback, None)
-    return titles
+	titles = []
+	win32gui.EnumWindows(callback, None)
+	return titles
 
 class ImageLocator():
-	# check if we're in the src folder or in the root folder
-	image_folder = os.path.join(os.getcwd(), 'images')
-	if 'src' not in os.getcwd():
-		image_folder = os.path.join(os.getcwd(), 'src', 'images') 	
+	image_folder = os.path.join(_src, 'images')
 
 	def __init__(self):
 		# images used for locating regions on screen
@@ -130,32 +134,32 @@ class ImageLocator():
 	'''
 	def locate(self, img_template):
 		if self.image_source != '' and os.path.isfile(img_template):
-		    template = cv2.imread(img_template) # loads image
-		    template = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY) # convert to grayscale
-		    template = cv2.Canny(template, 50, 200) # detects edges???
-		    (tH, tW) = template.shape[:2]
+			template = cv2.imread(img_template) # loads image
+			template = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY) # convert to grayscale
+			template = cv2.Canny(template, 50, 200) # detects edges???
+			(tH, tW) = template.shape[:2]
 
-		    # idk if this will work for our circular images but we'll try
-		    image = cv2.imread(os.path.join(self.image_folder,self.image_source))
-		    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-		    found = None
+			# idk if this will work for our circular images but we'll try
+			image = cv2.imread(os.path.join(self.image_folder,self.image_source))
+			image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+			found = None
 
-		    for scale in numpy.linspace(0.2, 1.0, 20)[::-1]:
-		        resized = imutils.resize(image, width = int(image.shape[1] * scale))
-		        r = image.shape[1] / float(resized.shape[1])
+			for scale in numpy.linspace(0.2, 1.0, 20)[::-1]:
+				resized = imutils.resize(image, width = int(image.shape[1] * scale))
+				r = image.shape[1] / float(resized.shape[1])
 
-		        if resized.shape[0] < tH or resized.shape[1] < tW:
-		            break
+				if resized.shape[0] < tH or resized.shape[1] < tW:
+					break
 
-		        edged = cv2.Canny(resized, 50, 200)
-		        result = cv2.matchTemplate(edged, template, cv2.TM_CCOEFF)
-		        (_, maxVal, _, maxLoc) = cv2.minMaxLoc(result)
+				edged = cv2.Canny(resized, 50, 200)
+				result = cv2.matchTemplate(edged, template, cv2.TM_CCOEFF)
+				(_, maxVal, _, maxLoc) = cv2.minMaxLoc(result)
 
-		        # draw a bounding box around the detected region
-		        #clone = numpy.dstack([edged, edged, edged])
-		       	
-		        if found is None or maxVal > found[0]:
-		            found = (maxVal, maxLoc, r)
+				# draw a bounding box around the detected region
+				#clone = numpy.dstack([edged, edged, edged])
+
+				if found is None or maxVal > found[0]:
+					found = (maxVal, maxLoc, r)
 
 			(_, maxLoc, r) = found
 			(startX, startY) = (int(maxLoc[0] * r), int(maxLoc[1] * r))
@@ -167,13 +171,13 @@ class ImageLocator():
 	def createResultImage(self):
 		if self.image_source != '':
 			from shutil import copyfile
-			copyfile(self.image_source, self.createImagePath("result"))
+			copyfile(self.image_source, os.path.join(_src, "screenshots", "result.png"))
 
 	def drawResultRect(self, x, y, w, h):
 		if self.image_source != '':
-			result_img = cv2.imread(self.createImagePath("result"))
+			result_img = cv2.imread(os.path.join(_src, "screenshots", "result.png"))
 			cv2.rectangle(result_img, (x, y), (x+w, y+h), (0, 0, 255), 2)
-			cv2.imwrite(self.createImagePath("result"), result_img)
+			cv2.imwrite(os.path.join(_src, "screenshots", "result.png"), result_img)
 
 	# binary search to find an optimal threshold
 	def findThreshold(self, res):
@@ -231,11 +235,10 @@ class DuelLinks():
 
 	# stores the coordinates of all found npcs
 	def getAllNpc(self):
-		self.win_ctrl.takeScreenshot(self.img_locator.createImagePath("world"))
-		self.img_locator.setImageSource(self.img_locator.createImagePath("world"))
+		img_world_path = self.win_ctrl.takeScreenshot("world")
+		self.img_locator.setImageSource(img_world_path)
 		self.img_locator.createResultImage()
 
-		print "NPCs found:",
 		for name in self.NPC_NAMES:
 			for i in range(0,3):
 				npc_loc = self.img_locator.locate(self.img_locator.createImagePath(name+str(i)))
@@ -244,8 +247,7 @@ class DuelLinks():
 					self.img_locator.drawResultRect(npc_loc[0], npc_loc[1], npc_loc[2], npc_loc[3])
 					self.npcs.append(npc_loc)
 					break # break first loop
-
-		print(" "+str(len(self.npcs))+"!")
+		print("NPCs found:" +str(len(self.npcs))+"!")
 
 	# duel any one npc found on the screen
 	def duelNPC(self):
