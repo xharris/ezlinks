@@ -1,6 +1,10 @@
 import win32api, win32gui, win32con, re, time, pyautogui, os, cv2, imutils
 import numpy
+import mss, mss.tools
 from vk_code import VK_CODE
+
+import ctypes.wintypes
+from ctypes import wintypes, windll, sizeof, byref
 
 class WinController():
 	def __init__(self, program_name):
@@ -52,7 +56,7 @@ class WinController():
 		y += self.win_rect[1]
 
 		self.bringToFront()
-		pyautogui.moveTo(x,y)
+		pyautogui.click(x,y)
 		''' # sending click to background window doesn't work
    		lParam = (y << 16) | x # position to click
 		print(win32api.PostMessage(self.hwnd, win32con.WM_LBUTTONDOWN, 0, lParam))
@@ -68,10 +72,25 @@ class WinController():
 		return x - self.win_rect[0], y - self.win_rect[1]
 
 	def refreshWindowRect(self):
-		bad_x, bad_y, w, h = win32gui.GetClientRect(self.hwnd)
-		x, y, bad_w, bad_h = win32gui.GetWindowRect(self.hwnd)
+		foundwindow = ctypes.windll.dwmapi.DwmGetWindowAttribute
+		rect = ctypes.wintypes.RECT()
+		DWMWA_EXTENDED_FRAME_BOUNDS = 9
+		foundwindow(
+			ctypes.wintypes.HWND(self.hwnd),
+			ctypes.wintypes.DWORD(DWMWA_EXTENDED_FRAME_BOUNDS),
+			ctypes.byref(rect), ctypes.sizeof(rect)
+		)
+		x, y, w, h = (rect.left, rect.top, rect.right-rect.left, rect.bottom-rect.top)
 		self.win_rect = [x, y, w, h]
 
+	def takeScreenshot(self, save_path):
+		with mss.mss() as sct:
+			shot = sct.grab({
+				'left':self.win_rect[0], 'top':self.win_rect[1],
+				'width':self.win_rect[2], 'height':self.win_rect[3]
+			})
+			mss.tools.to_png(shot.rgb, shot.size, save_path)
+		print("wrote screenshot: "+save_path)
 
 # get a list of open processes
 def enum_window_titles():
@@ -84,20 +103,23 @@ def enum_window_titles():
 
 class ImageLocator():
 	# check if we're in the src folder or in the root folder
+	image_folder = os.path.join(os.getcwd(), 'images')
 	if 'src' not in os.getcwd():
-		image_folder = os.path.join(os.getcwd(), 'src', 'images') 	# folder containing images used for locating regions on screen
-	else:
-		image_folder = os.path.join(os.getcwd(), 'images')
+		image_folder = os.path.join(os.getcwd(), 'src', 'images') 	
 
 	def __init__(self):
-		self.image_sources = []
+		# images used for locating regions on screen
+		self.image_source = ''
 		self.res = None
 
-	def addImageSource(self, src):
-		self.image_sources.append(src)
+	def setImageSource(self, src):
+		self.image_source = os.path.join(self.image_folder, src)
+		if not os.path.isfile(self.image_source):
+			raise Exception("image not found: "+self.image_source)
 
-	def clearImageSources(self):
-		self.image_sources = []
+	# returns C:/Documents/whatever/<png_name>.png
+	def createImagePath(self, png_name):
+		return os.path.join(self.image_folder, png_name+'.png')
 
 	'''
 	locate the position on an image in a larger one
@@ -107,15 +129,14 @@ class ImageLocator():
 	partly from https://www.pyimagesearch.com/2015/01/26/multi-scale-template-matching-using-python-opencv/
 	'''
 	def locate(self, img_template):
-		found = {}
-		for img_source in self.image_sources:
+		if self.image_source != '':
 		    template = cv2.imread(os.path.join(self.image_folder,img_template)) # loads image
 		    template = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY) # convert to grayscale
 		    template = cv2.Canny(template, 50, 200) # detects edges???
 		    (tH, tW) = template.shape[:2]
 
 		    # idk if this will work for our circular images but we'll try
-		    image = cv2.imread(os.path.join(self.image_folder,img_source))
+		    image = cv2.imread(os.path.join(self.image_folder,self.image_source))
 		    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 		    found = None
 
@@ -144,8 +165,8 @@ class ImageLocator():
 				(startX, startY) = (int(maxLoc[0] * r), int(maxLoc[1] * r))
 				(endX, endY) = (int((maxLoc[0] + tW) * r), int((maxLoc[1] + tH) * r))
 
-				found.append({src:img_source, x:startX, y:startY, w:endX, h:endY})
-		return found
+				return [startX,startY,endX,endY]
+		return None
 
 	# binary search to find an optimal threshold
 	def findThreshold(self, res):
@@ -190,10 +211,23 @@ class DuelLinks():
 
 		self.win_ctrl.bringToFront()
 
+	# street: gate, pvp, shop, studio
+	# TODO: add images to folder
+	def goToStreet(self, street):
+		img_path = os.path.join(self.img_locator.image_folder, street+".png")
+		if os.path.isfile(img_path):
+			pass
+		else:
+			raise Exception("Street \'{}\' not found".format(street))
 
 	# duel any one npc found on the screen
 	def duelNPC(self):
-		pass
+		self.win_ctrl.takeScreenshot(self.img_locator.createImagePath("world"))
+		self.img_locator.setImageSource("world.png")
+		npc_location = self.img_locator.locate("jess.png")
+
+		# offset from window position
+		self.win_ctrl.click(npc_location[0], npc_location[1])
 
 	# check how many NPCs are in the world (excluding vagabonds and legendary duelists)
 	def getPopulation():
