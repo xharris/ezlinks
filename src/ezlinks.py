@@ -92,7 +92,8 @@ class WinController():
 
 	def takeScreenshot(self, save_name):
 		self.refreshWindowRect()
-
+		self.bringToFront()
+		
 		# create screenshot dir
 		if not os.path.exists(os.path.join(_src,'screenshots')):
 			os.makedirs(os.path.join(_src,'screenshots'))
