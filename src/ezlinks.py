@@ -89,6 +89,11 @@ class WinController():
 		self.win_rect = [x, y, w, h]
 
 	def takeScreenshot(self, save_name):
+		# create screenshot dir
+		if not os.path.exists(os.path.join(_src,'screenshots')):
+			os.makedirs(os.path.join(_src,'screenshots'))
+
+		# take a screenshot
 		screenshot_path = os.path.join(_src,'screenshots',save_name+'.png')
 		with mss.mss() as sct:
 			shot = sct.grab({
