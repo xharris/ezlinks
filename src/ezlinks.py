@@ -190,3 +190,15 @@ class DuelLinks():
 
 		self.win_ctrl.bringToFront()
 
+
+	# duel any one npc found on the screen
+	def duelNPC(self):
+		pass
+
+	# check how many NPCs are in the world (excluding vagabonds and legendary duelists)
+	def getPopulation():
+		pass
+
+	# autoduel until no one is left
+	def cleanTheStreets(self):
+		pass
